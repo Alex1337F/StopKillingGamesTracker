@@ -726,6 +726,62 @@ function updateTotalProgress() {
         .catch(error => console.error('Error:', error));
 }
 
+// Funktion för att hämta och beräkna gårdagens signaturer
+async function fetchYesterdaySignatures() {
+    try {
+        // Hämta nuvarande total från huvud-API
+        const currentResponse = await fetch('https://eci.ec.europa.eu/045/public/api/report/progression');
+        const currentData = await currentResponse.json();
+        const currentTotal = currentData.signatureCount;
+
+        // Hämta historisk data
+        const response = await fetch('https://stopkillinggameshistoric-3a5f498bc1f0.herokuapp.com/historic-data');
+        let historicData = await response.json();
+
+        // Sortera data efter tidpunkt (nyast först)
+        historicData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Hitta igår och förrgår
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const dayBeforeYesterday = new Date(today);
+        dayBeforeYesterday.setDate(today.getDate() - 2);
+
+        // Filtrera ut poster från igår och förrgår
+        const yesterdayEntry = historicData.find(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= yesterday && entryDate < today;
+        });
+        const dayBeforeYesterdayEntry = historicData.find(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= dayBeforeYesterday && entryDate < yesterday;
+        });
+
+        if (yesterdayEntry && dayBeforeYesterdayEntry) {
+            const yesterdayTotal = yesterdayEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const dayBeforeYesterdayTotal = dayBeforeYesterdayEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const yesterdaySignatures = yesterdayTotal - dayBeforeYesterdayTotal;
+            return {
+                yesterdaySignatures,
+                yesterdayTotal
+            };
+        } else {
+            return {
+                yesterdaySignatures: null,
+                yesterdayTotal: null
+            };
+        }
+    } catch (error) {
+        console.error('Fel vid hämtning av gårdagens signaturer:', error);
+        return {
+            yesterdaySignatures: null,
+            yesterdayTotal: null
+        };
+    }
+}
+
 function updateTimeLeft(startTime, endTime) {
     const now = new Date();
     const timeLeft = endTime - now;
@@ -739,10 +795,29 @@ function updateTimeLeft(startTime, endTime) {
         document.querySelector('.time-left').querySelector('.progress-danger').style.width = `${100 - (timeLeft / (endTime - startTime)) * 100}%`;
     }
 
-    if(document.querySelector('.schedule-status').innerText != document.querySelector('.total-progress').querySelector('.progress').style.width > 100 - (timeLeft / (endTime - startTime)) * 100? `We're ahead of schedule!`:  `We're behind schedule!`){
-        document.querySelector('.schedule-status').innerText = document.querySelector('.total-progress').querySelector('.progress').style.width > 100 - (timeLeft / (endTime - startTime)) * 100? `We're ahead of schedule!`:  `We're behind schedule!`;
-    }
-    
+    // Hämta gårdagens signaturer och uppdatera schedule-status
+    fetchYesterdaySignatures().then(result => {
+        const { yesterdaySignatures, yesterdayTotal } = result;
+        // Om vi har data, räkna ut projected date
+        if (yesterdaySignatures && yesterdaySignatures > 0 && yesterdayTotal) {
+            const projectedDate = getProjectedFinalDate(
+                new Date(), // start från idag
+                yesterdayTotal, // nuvarande antal signaturer (gårdagens total)
+                1000000, // mål
+                yesterdaySignatures // daglig takt (gårdagens ökning)
+            );
+            if (projectedDate) {
+                // Räkna ut antal dagar till projected date från idag
+                const daysToGoal = Math.ceil((projectedDate - now) / (1000 * 60 * 60 * 24));
+                document.querySelector('.schedule-status').innerText = `Med gårdagens takt når vi målet om ${daysToGoal} dagar (senast ${projectedDate.toLocaleDateString('sv-SE')})`;
+            } else {
+                document.querySelector('.schedule-status').innerText = 'Kunde inte beräkna projekterat slutdatum.';
+            }
+        } else {
+            document.querySelector('.schedule-status').innerText = 'Ingen data för gårdagens takt.';
+        }
+    });
+
     if(document.querySelector('.daily-signatures-needed').innerText = `We need at least ${Math.ceil((1000000-previousSignatureCount)/daysLeft)} signatures per day on average!`){
         document.querySelector('.daily-signatures-needed').innerText = `We need at least ${Math.ceil((1000000-previousSignatureCount)/daysLeft)} signatures per day on average!`;
     }
@@ -930,6 +1005,50 @@ function displayFireworks() {
         );
         }, 250);
     }
+}
+
+/**
+ * Calculates the projected date to reach a signature goal.
+ *
+ * @param {Date} startDate The date from which to start projecting (e.g., today's date or yesterday's date).
+ * @param {number} currentSignatures The current total number of signatures.
+ * @param {number} targetGoal The total number of signatures to reach.
+ * @param {number} dailyVelocity The average number of signatures collected per day.
+ * @returns {Date | null} The projected Date object, or null if there's an error in inputs.
+ */
+function getProjectedFinalDate(startDate, currentSignatures, targetGoal, dailyVelocity) {
+    // Input validation
+    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) { // Check if it's a valid Date object
+        console.error("Error: 'startDate' must be a valid Date object.");
+        return null;
+    }
+    if (typeof currentSignatures !== 'number' || currentSignatures < 0) {
+        console.error("Error: 'currentSignatures' must be a non-negative number.");
+        return null;
+    }
+    if (typeof targetGoal !== 'number' || targetGoal <= currentSignatures) {
+        console.error("Error: 'targetGoal' must be a number greater than 'currentSignatures'.");
+        return null;
+    }
+    if (typeof dailyVelocity !== 'number' || dailyVelocity <= 0) {
+        console.error("Error: 'dailyVelocity' must be a positive number.");
+        return null;
+    }
+
+    // 1. Calculate signatures remaining
+    const signaturesRemaining = targetGoal - currentSignatures;
+
+    // 2. Calculate the number of days needed (round up to ensure goal is met)
+    const daysNeeded = Math.ceil(signaturesRemaining / dailyVelocity);
+
+    // 3. Create a new Date object from the start date to avoid modifying the original
+    const projectedDate = new Date(startDate);
+
+    // 4. Add the calculated days to the new date object
+    // setDate() handles month and year rollovers automatically
+    projectedDate.setDate(projectedDate.getDate() + daysNeeded);
+
+    return projectedDate;
 }
 
 let fireworksDisplayed = false;
