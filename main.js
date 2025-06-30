@@ -1073,6 +1073,50 @@ function getProjectedFinalDate(startDate, currentSignatures, targetGoal, dailyVe
     return projectedDate;
 }
 
+/**
+ * Calculates the projected date to reach a signature goal.
+ *
+ * @param {Date} startDate The date from which to start projecting (e.g., today's date or yesterday's date).
+ * @param {number} currentSignatures The current total number of signatures.
+ * @param {number} targetGoal The total number of signatures to reach.
+ * @param {number} dailyVelocity The average number of signatures collected per day.
+ * @returns {Date | null} The projected Date object, or null if there's an error in inputs.
+ */
+function getProjectedFinalDate(startDate, currentSignatures, targetGoal, dailyVelocity) {
+    // Input validation
+    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) { // Check if it's a valid Date object
+        console.error("Error: 'startDate' must be a valid Date object.");
+        return null;
+    }
+    if (typeof currentSignatures !== 'number' || currentSignatures < 0) {
+        console.error("Error: 'currentSignatures' must be a non-negative number.");
+        return null;
+    }
+    if (typeof targetGoal !== 'number' || targetGoal <= currentSignatures) {
+        console.error("Error: 'targetGoal' must be a number greater than 'currentSignatures'.");
+        return null;
+    }
+    if (typeof dailyVelocity !== 'number' || dailyVelocity <= 0) {
+        console.error("Error: 'dailyVelocity' must be a positive number.");
+        return null;
+    }
+
+    // 1. Calculate signatures remaining
+    const signaturesRemaining = targetGoal - currentSignatures;
+
+    // 2. Calculate the number of days needed (round up to ensure goal is met)
+    const daysNeeded = Math.ceil(signaturesRemaining / dailyVelocity);
+
+    // 3. Create a new Date object from the start date to avoid modifying the original
+    const projectedDate = new Date(startDate);
+
+    // 4. Add the calculated days to the new date object
+    // setDate() handles month and year rollovers automatically
+    projectedDate.setDate(projectedDate.getDate() + daysNeeded);
+
+    return projectedDate;
+}
+
 let fireworksDisplayed = false;
 let previousSignatureCount = 0;
 // Initial fetch and update of total progress data
