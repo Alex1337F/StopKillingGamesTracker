@@ -726,6 +726,84 @@ function updateTotalProgress() {
         .catch(error => console.error('Error:', error));
 }
 
+// Function to fetch and calculate yesterday's signatures
+async function fetchYesterdaySignatures() {
+    try {
+        // Get current total from main API
+        const currentResponse = await fetch('https://eci.ec.europa.eu/045/public/api/report/progression');
+        const currentData = await currentResponse.json();
+        const currentTotal = currentData.signatureCount;
+
+        // Get historical data
+        const response = await fetch('https://stopkillinggameshistoric-3a5f498bc1f0.herokuapp.com/historic-data');
+        let historicData = await response.json();
+
+        // Sort data by timestamp (newest first)
+        historicData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // oldest first for easier average
+
+        // Find yesterday and the day before yesterday
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const dayBeforeYesterday = new Date(today);
+        dayBeforeYesterday.setDate(today.getDate() - 2);
+
+        // Filter entries for yesterday and the day before yesterday
+        const yesterdayEntry = historicData.find(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= yesterday && entryDate < today;
+        });
+        const dayBeforeYesterdayEntry = historicData.find(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= dayBeforeYesterday && entryDate < yesterday;
+        });
+
+        // Calculate daily averages (exclude today)
+        let dailyIncreases = [];
+        for (let i = 1; i < historicData.length; i++) {
+            const prev = historicData[i - 1];
+            const curr = historicData[i];
+            const prevDate = new Date(prev.timestamp);
+            const currDate = new Date(curr.timestamp);
+            // Only include days before today
+            if (currDate < today) {
+                const prevTotal = prev.data.reduce((sum, country) => sum + country.totalCount, 0);
+                const currTotal = curr.data.reduce((sum, country) => sum + country.totalCount, 0);
+                dailyIncreases.push(currTotal - prevTotal);
+            }
+        }
+        let dailyAverage = null;
+        if (dailyIncreases.length > 0) {
+            dailyAverage = Math.round(dailyIncreases.reduce((a, b) => a + b, 0) / dailyIncreases.length);
+        }
+
+        if (yesterdayEntry && dayBeforeYesterdayEntry) {
+            const yesterdayTotal = yesterdayEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const dayBeforeYesterdayTotal = dayBeforeYesterdayEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const yesterdaySignatures = yesterdayTotal - dayBeforeYesterdayTotal;
+            return {
+                yesterdaySignatures,
+                yesterdayTotal,
+                dailyAverage
+            };
+        } else {
+            return {
+                yesterdaySignatures: null,
+                yesterdayTotal: null,
+                dailyAverage: null
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching yesterday\'s signatures:', error);
+        return {
+            yesterdaySignatures: null,
+            yesterdayTotal: null,
+            dailyAverage: null
+        };
+    }
+}
+
 function updateTimeLeft(startTime, endTime) {
     const now = new Date();
     const timeLeft = endTime - now;
@@ -739,10 +817,29 @@ function updateTimeLeft(startTime, endTime) {
         document.querySelector('.time-left').querySelector('.progress-danger').style.width = `${100 - (timeLeft / (endTime - startTime)) * 100}%`;
     }
 
-    if(document.querySelector('.schedule-status').innerText != document.querySelector('.total-progress').querySelector('.progress').style.width > 100 - (timeLeft / (endTime - startTime)) * 100? `We're ahead of schedule!`:  `We're behind schedule!`){
-        document.querySelector('.schedule-status').innerText = document.querySelector('.total-progress').querySelector('.progress').style.width > 100 - (timeLeft / (endTime - startTime)) * 100? `We're ahead of schedule!`:  `We're behind schedule!`;
-    }
-    
+    // Fetch yesterday's signatures and update schedule-status
+    fetchYesterdaySignatures().then(result => {
+        const { yesterdaySignatures, yesterdayTotal, dailyAverage } = result;
+        // If we have data, calculate projected date
+        if (yesterdaySignatures && yesterdaySignatures > 0 && yesterdayTotal) {
+            const projectedDate = getProjectedFinalDate(
+                new Date(), // start from today
+                yesterdayTotal, // yesterday's total
+                1000000, // goal
+                yesterdaySignatures // daily rate (yesterday's increase)
+            );
+            if (projectedDate) {
+                // Calculate number of days to projected date from today
+                const daysToGoal = Math.ceil((projectedDate - now) / (1000 * 60 * 60 * 24));
+                document.querySelector('.schedule-status').innerText = `At yesterday's rate, the goal will be reached in ${daysToGoal} days (by ${projectedDate.toLocaleDateString()})`;
+            } else {
+                document.querySelector('.schedule-status').innerText = 'Could not calculate projected final date.';
+            }
+        } else {
+            document.querySelector('.schedule-status').innerText = 'No data for yesterday\'s rate.';
+        }
+    });
+
     if(document.querySelector('.daily-signatures-needed').innerText = `We need at least ${Math.ceil((1000000-previousSignatureCount)/daysLeft)} signatures per day on average!`){
         document.querySelector('.daily-signatures-needed').innerText = `We need at least ${Math.ceil((1000000-previousSignatureCount)/daysLeft)} signatures per day on average!`;
     }
@@ -930,6 +1027,50 @@ function displayFireworks() {
         );
         }, 250);
     }
+}
+
+/**
+ * Calculates the projected date to reach a signature goal.
+ *
+ * @param {Date} startDate The date from which to start projecting (e.g., today's date or yesterday's date).
+ * @param {number} currentSignatures The current total number of signatures.
+ * @param {number} targetGoal The total number of signatures to reach.
+ * @param {number} dailyVelocity The average number of signatures collected per day.
+ * @returns {Date | null} The projected Date object, or null if there's an error in inputs.
+ */
+function getProjectedFinalDate(startDate, currentSignatures, targetGoal, dailyVelocity) {
+    // Input validation
+    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) { // Check if it's a valid Date object
+        console.error("Error: 'startDate' must be a valid Date object.");
+        return null;
+    }
+    if (typeof currentSignatures !== 'number' || currentSignatures < 0) {
+        console.error("Error: 'currentSignatures' must be a non-negative number.");
+        return null;
+    }
+    if (typeof targetGoal !== 'number' || targetGoal <= currentSignatures) {
+        console.error("Error: 'targetGoal' must be a number greater than 'currentSignatures'.");
+        return null;
+    }
+    if (typeof dailyVelocity !== 'number' || dailyVelocity <= 0) {
+        console.error("Error: 'dailyVelocity' must be a positive number.");
+        return null;
+    }
+
+    // 1. Calculate signatures remaining
+    const signaturesRemaining = targetGoal - currentSignatures;
+
+    // 2. Calculate the number of days needed (round up to ensure goal is met)
+    const daysNeeded = Math.ceil(signaturesRemaining / dailyVelocity);
+
+    // 3. Create a new Date object from the start date to avoid modifying the original
+    const projectedDate = new Date(startDate);
+
+    // 4. Add the calculated days to the new date object
+    // setDate() handles month and year rollovers automatically
+    projectedDate.setDate(projectedDate.getDate() + daysNeeded);
+
+    return projectedDate;
 }
 
 let fireworksDisplayed = false;
