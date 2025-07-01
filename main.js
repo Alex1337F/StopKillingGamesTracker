@@ -872,14 +872,105 @@ async function fetchTodaySignatures(showLoadingMessage = true) {
     }
 }
 
+// Function to fetch historical data and calculate yesterday's signatures
+async function fetchYesterdaySignatures(showLoadingMessage = true) {
+    try {
+        const yesterdayCountElement = document.querySelector('.yesterday-count');
+        if (showLoadingMessage && !yesterdayCountElement.dataset.hasValue) {
+            yesterdayCountElement.textContent = "Calculating yesterday's signatures...";
+        }
+
+        // Now get historical data
+        const response = await fetch('https://stopkillinggameshistoric-3a5f498bc1f0.herokuapp.com/historic-data');
+        let historicData = await response.json();
+        // Sort data by timestamp in descending order (newest first)
+        historicData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        // Find most recent entry before today (yesterday's end)
+        const previousEntries = historicData.filter(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate < today;
+        });
+        if (previousEntries.length > 1) {
+            // Get the two most recent entries before today
+            const mostRecentEntry = previousEntries[0]; // yesterday's end
+            const dayBeforeEntry = previousEntries[1]; // day before yesterday's end
+            const totalYesterday = mostRecentEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const totalDayBefore = dayBeforeEntry.data.reduce((sum, country) => sum + country.totalCount, 0);
+            const yesterdaySignatures = totalYesterday - totalDayBefore;
+            // Get previous value for animation
+            const prevValue = parseInt(yesterdayCountElement.dataset.value) || 0;
+            if (yesterdaySignatures !== prevValue) {
+                yesterdayCountElement.dataset.value = yesterdaySignatures;
+                yesterdayCountElement.dataset.hasValue = 'true';
+                // Animate if changed
+                if (prevValue > 0) {
+                    yesterdayCountElement.innerHTML = '';
+                    const oldCount = document.createElement('span');
+                    oldCount.className = 'count-down';
+                    oldCount.textContent = `Signatures yesterday: +${prevValue.toLocaleString()}`;
+                    const newCount = document.createElement('span');
+                    newCount.className = 'count-up';
+                    newCount.textContent = `Signatures yesterday: +${yesterdaySignatures.toLocaleString()}`;
+                    yesterdayCountElement.appendChild(oldCount);
+                    yesterdayCountElement.appendChild(newCount);
+                    setTimeout(() => {
+                        oldCount.style.transform = 'translateY(-100%)';
+                        oldCount.style.opacity = '0';
+                        newCount.style.transform = 'translateY(0)';
+                        newCount.style.opacity = '1';
+                    }, 10);
+                    setTimeout(() => {
+                        yesterdayCountElement.innerHTML = '';
+                        const finalElement = document.createElement('span');
+                        finalElement.className = 'count-down';
+                        finalElement.textContent = `Signatures yesterday: +${yesterdaySignatures.toLocaleString()}`;
+                        yesterdayCountElement.appendChild(finalElement);
+                    }, 600);
+                } else {
+                    yesterdayCountElement.innerHTML = '';
+                    const textElement = document.createElement('span');
+                    textElement.className = 'count-down';
+                    textElement.textContent = `Signatures yesterday: +${yesterdaySignatures.toLocaleString()}`;
+                    yesterdayCountElement.appendChild(textElement);
+                }
+                // Add visual indicator based on activity level
+                yesterdayCountElement.classList.remove('high-activity', 'medium-activity');
+                if (yesterdaySignatures > 5000) {
+                    yesterdayCountElement.classList.add('high-activity');
+                } else if (yesterdaySignatures > 2000) {
+                    yesterdayCountElement.classList.add('medium-activity');
+                }
+            }
+        } else {
+            if (showLoadingMessage) {
+                yesterdayCountElement.textContent = "Could not calculate yesterday's signatures";
+            }
+        }
+    } catch (error) {
+        const yesterdayCountElement = document.querySelector('.yesterday-count');
+        if (showLoadingMessage) {
+            yesterdayCountElement.textContent = "Could not load yesterday's signatures";
+        }
+    }
+}
+
+// Update fetchTodaySignatures to also update yesterday's count
+async function fetchTodayAndYesterdaySignatures(showLoadingMessage = true) {
+    await Promise.all([
+        fetchYesterdaySignatures(showLoadingMessage),
+        fetchTodaySignatures(showLoadingMessage)
+    ]);
+}
+
 // Call this function when the page loads
 document.addEventListener('DOMContentLoaded', function() {
-    // Fetch today's signatures after a short delay to ensure other APIs load first
-    setTimeout(fetchTodaySignatures, 1000);
+    setTimeout(fetchTodayAndYesterdaySignatures, 1000);
 });
 
 // Also update it periodically (every 5 minutes)
-setInterval(() => fetchTodaySignatures(false), 5 * 60 * 1000);
+setInterval(() => fetchTodayAndYesterdaySignatures(false), 5 * 60 * 1000);
 
 // Fetch and display country data
 fetch('https://stopkillinggamesdata.montoria.se/')
