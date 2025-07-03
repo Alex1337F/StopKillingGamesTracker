@@ -65,7 +65,7 @@ let previousSignatureCount = 0;
 let isUpdatingProgress = false; // Flag to prevent overlapping API requests
 let cachedEuApiData = null; // Cache for EU API data
 let lastEuApiFetch = 0; // Timestamp of last EU API fetch
-const EU_API_CACHE_DURATION = 3000; // Cache duration in milliseconds (3 seconds)
+const EU_API_CACHE_DURATION = 3000 * 30; // Cache duration in milliseconds (30 seconds)
 
 // Centralized function to fetch EU API data with caching
 async function fetchEuApiData() {
@@ -1016,11 +1016,11 @@ function getProjectedFinalDate(startDate, currentSignatures, targetGoal, dailyVe
 // Initial fetch and update of total progress data
 updateTotalProgress();
 
-// Set interval to update total progress data every 3 seconds
+// Set interval to update total progress data every 30 seconds
 setInterval(async () => {
     await updateTotalProgress();
     updateTotalSignatures(false);
-}, 3000);
+}, 1000 * 30);
 
 //Update time left every second
 const startTime = new Date('31 jul 2024 GMT+0200');
