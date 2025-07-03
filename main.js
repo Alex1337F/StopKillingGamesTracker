@@ -59,6 +59,20 @@ const countryPopulations = {
     "cy": 888005
 };
 
+// Current open API request to progression endpoint
+var progressionRequest = null;
+
+function fetchProgression() {
+    if (progressionRequest === null) {
+        progressionRequest = fetch('https://eci.ec.europa.eu/045/public/api/report/progression')
+          .finally(responseOrError => {
+              progressionRequest = null;
+              return responseOrError;
+        });
+    };
+    return progressionRequest.then(response => response.clone());
+};
+
 // Function to get the flag URL from local flags folder
 function fetchFlagUrl(countryName) {
     const specialCases = {
@@ -435,7 +449,7 @@ document.getElementById('sortPerCapitaDesc').addEventListener('click', () => {
 
 // Function to fetch and update total progress data
 function updateTotalProgress() {
-    fetch('https://eci.ec.europa.eu/045/public/api/report/progression')
+    fetchProgression()
         .then(response => response.json())
         .then(data => {
             const { signatureCount, goal } = data;
@@ -547,7 +561,7 @@ function updateTotalProgress() {
 async function fetchYesterdaySignatures() {
     try {
         // Get current total from main API
-        const currentResponse = await fetch('https://eci.ec.europa.eu/045/public/api/report/progression');
+        const currentResponse = await fetchProgression();
         const currentData = await currentResponse.json();
         const currentTotal = currentData.signatureCount;
 
@@ -781,7 +795,7 @@ async function updateTotalSignatures(showLoadingMessage = true) {
 
     try {
         // Get current total from main API first
-        const currentResponse = await fetch('https://eci.ec.europa.eu/045/public/api/report/progression');
+        const currentResponse = await fetchProgression();
         const currentData = await currentResponse.json();
 
         const currentTotal = currentData.signatureCount;
