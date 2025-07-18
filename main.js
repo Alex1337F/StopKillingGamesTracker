@@ -489,7 +489,7 @@ async function updateTotalProgress() {
         if (!data) return; // No data available
         
         const { signatureCount, goal } = data;
-            const goalReached = signatureCount >= goal;
+            const goalReached = signatureCount >= 1000000;
             
             if(goalReached){
                 displayFireworks();
