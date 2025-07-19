@@ -488,8 +488,9 @@ async function updateTotalProgress() {
         const data = await fetchEuApiData();
         if (!data) return; // No data available
         
-        const { signatureCount, goal } = data;
-            const goalReached = signatureCount >= 1000000;
+        const { signatureCount } = data;
+        const goal = 1000000;
+            const goalReached = signatureCount >= goal ;
             
             if(goalReached){
                 displayFireworks();
