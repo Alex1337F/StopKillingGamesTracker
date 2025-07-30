@@ -774,8 +774,19 @@ function updateTimeLeft(startTime, endTime) {
         dailySignaturesElement.style.display = 'none';
     } else {
         dailySignaturesElement.style.display = 'block';
-        if(dailySignaturesElement.innerText = `We need at least ${Math.ceil((nextMilestone-previousSignatureCount)/daysLeft)} signatures per day on average to reach ${nextMilestone.toLocaleString()}!`){
-            dailySignaturesElement.innerText = `We need at least ${Math.ceil((nextMilestone-previousSignatureCount)/daysLeft)} signatures per day on average to reach ${nextMilestone.toLocaleString()}!`;
+        
+        // Handle case when less than 24 hours remain
+        let message;
+        if (daysLeft <= 0) {
+            const signaturesNeeded = nextMilestone - previousSignatureCount;
+            message = `We need ${signaturesNeeded.toLocaleString()} more signatures to reach ${nextMilestone.toLocaleString()}! Less than 24 hours remaining!`;
+        } else {
+            const signaturesPerDay = Math.ceil((nextMilestone - previousSignatureCount) / daysLeft);
+            message = `We need at least ${signaturesPerDay.toLocaleString()} signatures per day on average to reach ${nextMilestone.toLocaleString()}!`;
+        }
+        
+        if(dailySignaturesElement.innerText !== message){
+            dailySignaturesElement.innerText = message;
         }
     }
 
@@ -1055,7 +1066,7 @@ setInterval(async () => {
 
 //Update time left every second
 const startTime = new Date('31 jul 2024 GMT+0200');
-const endTime = new Date('31 jul 2025 GMT+0200');
+const endTime = new Date('1 aug 2025 GMT+0200');
 const clockAnim=["🕛","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚"];
 let animIndex=0;
 setInterval(() => updateTimeLeft(startTime, endTime), 1000);
