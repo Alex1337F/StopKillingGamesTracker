@@ -498,73 +498,13 @@ async function updateTotalProgress() {
                 const encouragementDiv = document.querySelector('.goal-reached-encouragement');
                 if (encouragementDiv) {
                     encouragementDiv.style.display = 'block';
-                    
-                    // Update buffer progress overlays for extra signatures (100k increments)
-                    const extraSignatures = Math.max(0, signatureCount - goal);
-                    
-                    // Update buffer text information
-                    const bufferCountElement = document.querySelector('.buffer-count');
-                    const nextMilestoneElement = document.querySelector('.next-milestone');
-                    
-                    if (bufferCountElement) {
-                        bufferCountElement.textContent = extraSignatures.toLocaleString();
-                    }
-                    
-                    // Calculate next milestone
-                    const currentMilestone = Math.floor(extraSignatures / 100000) + 1;
-                    const nextMilestone = currentMilestone * 100000;
-                    if (nextMilestoneElement) {
-                        if (extraSignatures >= 500000) {
-                            nextMilestoneElement.textContent = "Incredible! You've exceeded all expectations!";
-                        } else {
-                            nextMilestoneElement.textContent = nextMilestone.toLocaleString();
-                        }
-                    }
-                    
-                    // Update buffer overlays (each represents 100k signatures)
-                    const bufferOverlays = [
-                        document.querySelector('.buffer-100k'),
-                        document.querySelector('.buffer-200k'),
-                        document.querySelector('.buffer-300k'),
-                        document.querySelector('.buffer-400k'),
-                        document.querySelector('.buffer-500k')
-                    ];
-                    
-                    bufferOverlays.forEach((overlay, index) => {
-                        if (overlay) {
-                            const milestoneValue = (index + 1) * 100000; // 100k, 200k, 300k, etc.
-                            
-                            if (extraSignatures >= milestoneValue) {
-                                // This milestone is completely filled
-                                overlay.style.width = '100%';
-                                overlay.style.opacity = '1';
-                            } else if (extraSignatures > index * 100000) {
-                                // This milestone is partially filled
-                                const progressInThisMilestone = extraSignatures - (index * 100000);
-                                const percentageOfMilestone = (progressInThisMilestone / 100000) * 100;
-                                overlay.style.width = `${percentageOfMilestone}%`;
-                                overlay.style.opacity = '1';
-                            } else {
-                                // This milestone hasn't been reached yet
-                                overlay.style.width = '0%';
-                                overlay.style.opacity = '0';
-                            }
-                        }
-                    });
                 }
             } else {
-                // Hide encouragement message and reset buffer overlays if goal is not reached
+                // Hide encouragement message if goal is not reached
                 const encouragementDiv = document.querySelector('.goal-reached-encouragement');
                 if (encouragementDiv) {
                     encouragementDiv.style.display = 'none';
                 }
-                
-                // Reset all buffer overlays
-                const bufferOverlays = document.querySelectorAll('.buffer-progress-overlay');
-                bufferOverlays.forEach(overlay => {
-                    overlay.style.width = '0%';
-                    overlay.style.opacity = '0';
-                });
             }
             
             // Calculate the percentage towards the goal
@@ -747,52 +687,6 @@ async function initializeScheduleStatus() {
         }
     } catch (e) {
         globalScheduleStatus = 'Error fetching schedule status.';
-    }
-}
-
-function updateTimeLeft(startTime, endTime) {
-    const now = new Date();
-    const timeLeft = endTime - now;
-    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-    const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-    const secondsLeft = Math.floor((timeLeft % (1000 * 60)) / 1000);
-    
-    document.querySelector('#time-left-text').innerText = `${clockAnim[animIndex]}${daysLeft}d ${hoursLeft}h ${minutesLeft}m ${secondsLeft}s`;
-    if(document.querySelector('.time-left').querySelector('.progress-danger').style.width = `${100 - (timeLeft / (endTime - startTime)) * 100}%`){
-        document.querySelector('.time-left').querySelector('.progress-danger').style.width = `${100 - (timeLeft / (endTime - startTime)) * 100}%`;
-    }
-
-    document.querySelector('.schedule-status').innerText = globalScheduleStatus;
-
-    // Calculate next milestone for daily signatures needed
-    const nextMilestone = Math.ceil(previousSignatureCount / 100000) * 100000;
-    
-    // Only show daily signatures needed if current milestone hasn't been reached
-    const dailySignaturesElement = document.querySelector('.daily-signatures-needed');
-    if (previousSignatureCount >= nextMilestone) {
-        dailySignaturesElement.style.display = 'none';
-    } else {
-        dailySignaturesElement.style.display = 'block';
-        
-        // Handle case when less than 24 hours remain
-        let message;
-        if (daysLeft <= 0) {
-            const signaturesNeeded = nextMilestone - previousSignatureCount;
-            message = `We need ${signaturesNeeded.toLocaleString()} more signatures to reach ${nextMilestone.toLocaleString()}! Less than 24 hours remaining!`;
-        } else {
-            const signaturesPerDay = Math.ceil((nextMilestone - previousSignatureCount) / daysLeft);
-            message = `We need at least ${signaturesPerDay.toLocaleString()} signatures per day on average to reach ${nextMilestone.toLocaleString()}!`;
-        }
-        
-        if(dailySignaturesElement.innerText !== message){
-            dailySignaturesElement.innerText = message;
-        }
-    }
-
-    animIndex++;
-    if (animIndex >= clockAnim.length) {
-        animIndex = 0;
     }
 }
 
@@ -1063,10 +957,3 @@ setInterval(async () => {
     await updateTotalProgress();
     updateTotalSignatures(false);
 }, 3000);
-
-//Update time left every second
-const startTime = new Date('31 jul 2024 GMT+0200');
-const endTime = new Date('1 aug 2025 GMT+0200');
-const clockAnim=["🕛","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚"];
-let animIndex=0;
-setInterval(() => updateTimeLeft(startTime, endTime), 1000);

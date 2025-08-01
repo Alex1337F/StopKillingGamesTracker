@@ -472,6 +472,53 @@ body {
     opacity: 0.8;
 }
 
+/* Verification info display */
+.verification-info {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: left;
+}
+
+.verification-info p {
+    margin: 0 0 10px 0;
+    font-size: 1em;
+    font-weight: bold;
+    color: #FFD700;
+}
+
+.verification-info ul {
+    margin: 10px 0 0 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.verification-info li {
+    margin: 8px 0;
+    font-size: 0.95em;
+    color: #E0E0E0;
+    line-height: 1.4;
+}
+
+.verification-info p:last-child {
+    margin-top: 15px;
+    font-size: 0.85em;
+    color: #B0B0B0;
+    opacity: 0.8;
+}
+
+.verification-info p:last-child a {
+    color: #B0B0B0;
+    text-decoration: none;
+}
+
+.verification-info p:last-child a:hover {
+    color: #D0D0D0;
+    text-decoration: underline;
+}
+
 @keyframes goalPulse {
     0%, 100% {
         box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
