@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const colors = {};
 
     try {
-        const response = await fetch('https://stopkillinggameshistoricdata.montoria.se/historic-data');
+        const response = await fetch('historic-data.json');
         let data = await response.json();
 
         // Sort data by timestamp

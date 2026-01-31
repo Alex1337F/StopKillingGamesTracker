@@ -85,7 +85,7 @@ async function fetchEuApiData() {
     isUpdatingProgress = true;
     
     try {
-        const response = await fetch('https://stopkillinggamesdata.montoria.se/realtime');
+        const response = await fetch('realtime.json');
         const data = await response.json();
         
         // Cache the fresh data
@@ -425,7 +425,7 @@ function displayCountries(countries, showUpdateMessage = false) {
 
 // Function to sort countries and update the display
 function sortCountries(order = 'desc', sortBy = 'percentage') {
-    fetch('https://stopkillinggamesdata.montoria.se/')
+    fetch('country-data.json')
         .then(response => response.json())
         .then(data => {
             const sortedCountries = [...data.signatureCountryCount].sort((a, b) => {
@@ -546,7 +546,7 @@ async function fetchYesterdaySignatures() {
         const currentTotal = currentData.signatureCount;
 
         // Get historical data
-        const response = await fetch('https://stopkillinggameshistoric-3a5f498bc1f0.herokuapp.com/historic-data');
+        const response = await fetch('historic-data.json');
         let historicData = await response.json();
 
         // Sort data by timestamp (newest first)
@@ -633,7 +633,7 @@ async function initializeScheduleStatus() {
             // Calculate next milestone (next 100k increment above current signatures)
             const nextMilestone = Math.ceil(currentSignatures / 100000) * 100000;
             
-            const response = await fetch('https://stopkillinggameshistoricdata.montoria.se/historic-data');
+            const response = await fetch('historic-data.json');
             const historicData = await response.json();
             historicData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
             const now = new Date();
@@ -698,7 +698,7 @@ async function fetchTotalSignaturesFromYesterday() {
     totalSignaturesFromYesterday = { loading: true, error: null, data: totalSignaturesFromYesterday.data };
 
     try {
-        const response = await fetch('https://stopkillinggameshistoricdata.montoria.se/historic-data');
+        const response = await fetch('historic-data.json');
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -856,7 +856,7 @@ document.addEventListener('DOMContentLoaded', function() {
 envInterval = setInterval(() => fetchTotalSignaturesFromYesterday(true), 5 * 60 * 1000);
 
 // Fetch and display country data
-fetch('https://stopkillinggamesdata.montoria.se/')
+fetch('country-data.json')
     .then(response => response.json())
     .then(data => {
         console.log(data); // Log the data to see what's being returned
